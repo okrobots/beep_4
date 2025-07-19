@@ -20,26 +20,22 @@ jobs:
         sudo apt-get install -y zip unzip openjdk-17-jdk
         sudo apt-get clean
 
-    - name: Prepare Project and Generate buildozer.spec
+    - name: Generate buildozer.spec
       run: |
-        # Create src directory and move Python files into it
-        mkdir -p src
-        # Move all .py files from the root to src/
-        # Use a loop or find to handle multiple .py files robustly
-        find . -maxdepth 1 -name "*.py" -exec mv {} src/ \;
-        
-        # Now, create the buildozer.spec file correctly, ensuring [app] is only once
+        # Create the buildozer.spec file correctly, ensuring [app] is only once
         cat > buildozer.spec <<EOF
         [app]
         title = beep_4
         package.name = beep4
         package.domain = org.example
         version = 1.0
-        # Crucially, point source.dir to your src folder
-        source.dir = ./src
-        # Combine all requirements here
+        # Source directory is the current directory (repository root)
+        source.dir = .
         requirements = python3,kivy,requests
         android.permissions = INTERNET, WAKELOCK # Added WAKELOCK as a common Kivy need, adjust as necessary
+        android.minsdk = 21 # Recommended minimum for Kivy apps
+        android.targetsdk = 33 # Recommended for Google Play submission (adjust if higher is required)
+        android.archs = arm64-v8a # Build for modern 64-bit devices
 
         [buildozer]
         log_level = 2 # Increase for more detailed logs if needed
