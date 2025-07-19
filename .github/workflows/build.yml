@@ -24,36 +24,48 @@ jobs:
 
         P4A_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform/python-for-android"
         BUILD_PLATFORM_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform"
+        ANDROID_SDK_ROOT="$BUILD_PLATFORM_DIR/android-sdk" # Define SDK root for sdkmanager
 
         echo "Ensuring necessary Buildozer Android platform directories exist..."
         mkdir -p "$BUILD_PLATFORM_DIR"
         
-        # --- Attempt to clone python-for-android manually if it's missing ---
-        if [ ! -d "$P4A_DIR" ]; then
-            echo "python-for-android not found. Attempting to clone it manually..."
-            git clone https://github.com/kivy/python-for-android "$P4A_DIR" || { echo "ERROR: Manual python-for-android clone failed!"; exit 1; }
-            echo "Manual python-for-android clone successful."
-        else
-            echo "python-for-android directory already exists. Skipping manual clone."
-        fi
-        
-        # --- Now run buildozer's clean and update ---
+        # --- Clean and initial update ---
         echo "Cleaning Buildozer Android build artifacts and SDK/NDK cache..."
-        # Use || true to prevent this specific clean command from failing the workflow if the .buildozer dir is brand new
         buildozer android clean || true 
         
-        echo "Running buildozer android update to ensure SDK, NDK, and p4a configuration..."
-        # This will also ensure correct p4a branch/commit based on buildozer.spec
-        buildozer android update --verbose || { echo "ERROR: buildozer android update failed!"; exit 1; }
-        echo "Buildozer android update complete."
+        echo "Running initial buildozer android update to download basic SDK/cmdline-tools..."
+        buildozer android update --verbose || { echo "ERROR: Initial buildozer android update failed!"; exit 1; }
+        echo "Initial buildozer android update complete."
 
-        # --- FINAL CRITICAL DIAGNOSTIC ---
+        # --- CRITICAL: Accept Android SDK Licenses ---
+        echo "Attempting to accept Android SDK licenses explicitly..."
+        # Locate the sdkmanager. It should be in the latest cmdline-tools version downloaded by buildozer.
+        # Find the path to sdkmanager dynamically, as the exact version number can vary.
+        SDK_MANAGER_PATH=$(find "$ANDROID_SDK_ROOT" -name "sdkmanager" | head -n 1)
+        
+        if [ -z "$SDK_MANAGER_PATH" ]; then
+            echo "Error: sdkmanager not found at expected path after buildozer android update. Cannot accept licenses."
+            echo "Check the output of the previous 'Initial buildozer android update' step for SDK download errors."
+            exit 1
+        fi
+        
+        # Pipe 'yes' to sdkmanager --licenses to accept all licenses non-interactively
+        echo "Running sdkmanager --licenses via '$SDK_MANAGER_PATH'"
+        yes | "$SDK_MANAGER_PATH" --licenses || { echo "ERROR: Accepting Android SDK licenses failed!"; exit 1; }
+        echo "Android SDK licenses accepted."
+        
+        # --- Run buildozer update again to install components now that licenses are accepted ---
+        echo "Running buildozer android update again to ensure full setup after license acceptance..."
+        buildozer android update --verbose || { echo "ERROR: Final buildozer android update failed after license acceptance!"; exit 1; }
+        echo "Final buildozer android update complete."
+
+        # --- Verify python-for-android (as fallback) ---
         echo "Final verification: Checking for python-for-android at: $P4A_DIR"
         if [ -d "$P4A_DIR" ]; then
             echo "SUCCESS: python-for-android directory found! Listing its contents:"
             ls -la "$P4A_DIR"
         else
-            echo "FATAL ERROR: python-for-android directory is STILL MISSING!"
+            echo "FATAL ERROR: python-for-android directory is STILL MISSING! Review 'Final buildozer android update' output."
             exit 1
         fi
         echo "------------------------------------------"
@@ -73,7 +85,7 @@ jobs:
         android.targetsdk = 33
         android.archs = arm64-v8a
 
-        # If issues persist, uncomment this to try a specific branch for p4a
+        # If python-for-android issues persist, uncomment this to try a specific branch for p4a
         # p4a.branch = develop
 
         [buildozer]
