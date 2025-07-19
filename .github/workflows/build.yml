@@ -6,52 +6,59 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4  # 更新checkout版本
+    - uses: actions/checkout@v4
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'  # 使用较新Python版本
+        python-version: '3.10'
 
-    - name: Install Buildozer
+    - name: Install Buildozer and Dependencies
       run: |
         pip install buildozer
         sudo apt-get update
         sudo apt-get install -y zip unzip openjdk-17-jdk
-        sudo apt-get clean  # 清理缓存节省空间
+        sudo apt-get clean
 
-    - name: Generate Build Config
+    - name: Prepare Project and Generate buildozer.spec
       run: |
-        echo "[app]" > buildozer.spec
-        echo "title = beep_4" >> buildozer.spec
-        echo "package.name = beep4" >> buildozer.spec
-        echo "package.domain = org.example" >> buildozer.spec
-        echo "version = 1.0" >> buildozer.spec
-        echo "requirements = python3,kivy" >> buildozer.spec
-        echo "android.permissions = INTERNET" >> buildozer.spec
+        # Create src directory and move Python files into it
+        mkdir -p src
+        # Move all .py files from the root to src/
+        # Use a loop or find to handle multiple .py files robustly
+        find . -maxdepth 1 -name "*.py" -exec mv {} src/ \;
+        
+        # Now, create the buildozer.spec file correctly, ensuring [app] is only once
+        cat > buildozer.spec <<EOF
+        [app]
+        title = beep_4
+        package.name = beep4
+        package.domain = org.example
+        version = 1.0
+        # Crucially, point source.dir to your src folder
+        source.dir = ./src
+        # Combine all requirements here
+        requirements = python3,kivy,requests
+        android.permissions = INTERNET, WAKELOCK # Added WAKELOCK as a common Kivy need, adjust as necessary
 
-    - name: Fix Buildozer Config
-      run: |
-       mkdir -p src
-       mv *.py src/ 2>/dev/null || true
-       echo "[app]" > buildozer.spec
-       echo "source.dir = ./src" >> buildozer.spec
-       cat >> buildozer.spec <<EOF
-       [app]
-       title = beep_4
-       package.name = beep4
-       requirements = python3,kivy,requests
-       android.permissions = INTERNET
-       EOF
-       
+        [buildozer]
+        log_level = 2 # Increase for more detailed logs if needed
+        # android.enable_aab = True # Consider enabling AAB for Google Play uploads
+        EOF
+        
+        # Optional: Print the spec file to verify it in the logs
+        echo "--- buildozer.spec content after generation ---"
+        cat buildozer.spec
+        echo "----------------------------------------------"
+
     - name: Build APK
       run: |
         buildozer -v android debug
-        ls -lh bin/  # 检查生成文件
+        ls -lh bin/
 
     - name: Upload APK
-      uses: actions/upload-artifact@v4  # 关键修正点
+      uses: actions/upload-artifact@v4
       with:
         name: beep_4-apk
         path: bin/*.apk
-        retention-days: 7  # 自动7天后清理
+        retention-days: 7
