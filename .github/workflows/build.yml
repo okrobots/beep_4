@@ -16,6 +16,7 @@ jobs:
     - name: Install Buildozer and Dependencies
       run: |
         pip install buildozer
+        pip install cython
         sudo apt-get update
         sudo apt-get install -y zip unzip openjdk-17-jdk
         sudo apt-get clean
