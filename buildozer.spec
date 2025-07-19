@@ -6,14 +6,17 @@ package.domain = org.example
 version = 1.0
 
 # 源代码配置
-source.dir = .  # 关键修正点：指定当前目录为源码目录
+source.dir = ./src # 关键修正点：指定当前目录为源码目录
 source.include_exts = py,png,jpg,kv,ttf
-requirements = python3,kivy,requests  # 添加网络依赖
+requirements = python3==3.9.13,kivy==2.1.0,requests==2.28.1 # 添加网络依赖
 
 # 安卓专属配置
-android.permissions = INTERNET  # 启用网络权限
-android.api = 33  # 指定Android API级别
-p4a.branch = develop  # 使用开发版工具链
+android.api = 30 
+android.minapi = 21 
+android.ndk = 23b 
+android.permissions = INTERNET 
+android.allow_backup = False 
+
 
 # 构建优化
 log_level = 2
