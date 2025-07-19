@@ -1,7 +1,7 @@
 [app]
 # 应用基础信息
-title = beep_2
-package.name = beep2
+title = beep_4
+package.name = beep4
 package.domain = org.example
 version = 1.0
 
