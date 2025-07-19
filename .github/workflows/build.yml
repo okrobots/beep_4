@@ -30,6 +30,20 @@ jobs:
         echo "requirements = python3,kivy" >> buildozer.spec
         echo "android.permissions = INTERNET" >> buildozer.spec
 
+    - name: Fix Buildozer Config
+      run: |
+       mkdir -p src
+       mv *.py src/ 2>/dev/null || true
+       echo "[app]" > buildozer.spec
+       echo "source.dir = ./src" >> buildozer.spec
+       cat >> buildozer.spec <<EOF
+       [app]
+       title = beep_2
+       package.name = beep2
+       requirements = python3,kivy,requests
+       android.permissions = INTERNET
+       EOF
+       
     - name: Build APK
       run: |
         buildozer -v android debug
