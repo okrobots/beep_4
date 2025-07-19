@@ -13,37 +13,54 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Buildozer and Dependencies
+    - name: Install Buildozer and Core Dependencies
       run: |
         pip install buildozer
         pip install cython
 
         sudo apt-get update
-        sudo apt-get install -y zip unzip openjdk-17-jdk # Ensure Java for Android SDK
+        # Install basic build tools and Java needed by Buildozer and Android SDK
+        sudo apt-get install -y build-essential libssl-dev zlib1g-dev libffi-dev python3-dev openjdk-17-jdk
         sudo apt-get clean
 
-        echo "Cleaning old Android SDK/NDK cache..."
-        buildozer android clean
-        
-        echo "Updating/downloading Android SDK, NDK, and Python-for-Android components..."
-        # Force a complete update of SDK/NDK/p4a.
-        # This command is critical for ensuring python-for-android is cloned.
-        # It can take a long time and might seem stuck, be patient.
-        buildozer android update --verbose # Add --verbose for more detailed output here
-        echo "Android SDK/NDK/P4A update complete."
+        # Ensure Git is installed and available, as Buildozer uses it to clone p4a
+        echo "Checking Git installation..."
+        which git
+        git --version
+        if [ $? -ne 0 ]; then
+            echo "Git is not found or not working. Exiting."
+            exit 1
+        fi
+        echo "Git check complete."
 
-        # --- DIAGNOSTIC STEP for python-for-android ---
-        P4A_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform/python-for-android"
-        echo "Checking for python-for-android directory: $P4A_DIR"
-        if [ -d "$P4A_DIR" ]; then
-            echo "python-for-android directory found! Listing contents:"
-            ls -la "$P4A_DIR"
+        echo "Cleaning old Android SDK/NDK cache for a fresh start..."
+        buildozer android clean
+
+        echo "Updating/downloading Android SDK, NDK, and Python-for-Android components (this can take significant time)..."
+        # The --verbose flag should give us more clues if it fails
+        # Using 'true' after the command allows the workflow to continue to diagnostic steps even if this fails
+        # but we'll add an explicit check to fail later if p4a is still missing.
+        buildozer android update --verbose || true
+        echo "Android SDK/NDK/P4A update initiated."
+
+        # --- CRITICAL DIAGNOSTIC: Check for python-for-android existence ---
+        P4A_TARGET_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform/python-for-android"
+        echo "Verifying presence of python-for-android at: $P4A_TARGET_DIR"
+        
+        if [ -d "$P4A_TARGET_DIR" ]; then
+            echo "SUCCESS: python-for-android directory found! Listing its contents for verification:"
+            ls -la "$P4A_TARGET_DIR"
+            echo "Attempting a quick 'git status' inside p4a (if it's a git repo):"
+            git -C "$P4A_TARGET_DIR" status || echo "Could not run git status in p4a directory (might not be a clean git clone)."
         else
-            echo "ERROR: python-for-android directory NOT found!"
-            exit 1 # Fail the job explicitly if p4a is missing here
+            echo "ERROR: python-for-android directory NOT found after 'buildozer android update'!"
+            echo "This indicates a failure in cloning or extracting python-for-android."
+            echo "Review the 'buildozer android update' output above for errors."
+            echo "If the problem persists, consider uncommenting 'p4a.branch = develop' in buildozer.spec as a workaround."
+            exit 1 # Fail the job here explicitly if p4a is still missing
         fi
         echo "------------------------------------------"
-        # --- END DIAGNOSTIC STEP ---
+        # --- END CRITICAL DIAGNOSTIC ---
 
     - name: Generate buildozer.spec
       run: |
@@ -60,9 +77,7 @@ jobs:
         android.targetsdk = 33
         android.archs = arm64-v8a
 
-        # Optional: Specify the python-for-android branch
-        # This can sometimes resolve issues with newer Python versions or specific buildozer/p4a compatibility.
-        # Uncomment the line below if the error persists.
+        # If python-for-android continues to fail, uncomment this line:
         # p4a.branch = develop
 
         [buildozer]
