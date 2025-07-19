@@ -13,62 +13,26 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Buildozer and Core Dependencies
+    - name: Install Buildozer and Dependencies
       run: |
         pip install buildozer
-        pip install cython
+        pip install cython # Keep this, it fixed the previous issue.
 
+        # Ensure apt packages are up-to-date and necessary Java is installed
         sudo apt-get update
-        sudo apt-get install -y build-essential libssl-dev zlib1g-dev libffi-dev python3-dev openjdk-17-jdk git
+        sudo apt-get install -y zip unzip openjdk-17-jdk
         sudo apt-get clean
 
-        P4A_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform/python-for-android"
-        BUILD_PLATFORM_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform"
-        ANDROID_SDK_ROOT="$BUILD_PLATFORM_DIR/android-sdk" # Define SDK root for sdkmanager
-
-        echo "Ensuring necessary Buildozer Android platform directories exist..."
-        mkdir -p "$BUILD_PLATFORM_DIR"
-        
-        # --- Clean and initial update ---
-        echo "Cleaning Buildozer Android build artifacts and SDK/NDK cache..."
-        buildozer android clean || true 
-        
-        echo "Running initial buildozer android update to download basic SDK/cmdline-tools..."
-        buildozer android update --verbose || { echo "ERROR: Initial buildozer android update failed!"; exit 1; }
-        echo "Initial buildozer android update complete."
-
-        # --- CRITICAL: Accept Android SDK Licenses ---
-        echo "Attempting to accept Android SDK licenses explicitly..."
-        # Locate the sdkmanager. It should be in the latest cmdline-tools version downloaded by buildozer.
-        # Find the path to sdkmanager dynamically, as the exact version number can vary.
-        SDK_MANAGER_PATH=$(find "$ANDROID_SDK_ROOT" -name "sdkmanager" | head -n 1)
-        
-        if [ -z "$SDK_MANAGER_PATH" ]; then
-            echo "Error: sdkmanager not found at expected path after buildozer android update. Cannot accept licenses."
-            echo "Check the output of the previous 'Initial buildozer android update' step for SDK download errors."
-            exit 1
-        fi
-        
-        # Pipe 'yes' to sdkmanager --licenses to accept all licenses non-interactively
-        echo "Running sdkmanager --licenses via '$SDK_MANAGER_PATH'"
-        yes | "$SDK_MANAGER_PATH" --licenses || { echo "ERROR: Accepting Android SDK licenses failed!"; exit 1; }
-        echo "Android SDK licenses accepted."
-        
-        # --- Run buildozer update again to install components now that licenses are accepted ---
-        echo "Running buildozer android update again to ensure full setup after license acceptance..."
-        buildozer android update --verbose || { echo "ERROR: Final buildozer android update failed after license acceptance!"; exit 1; }
-        echo "Final buildozer android update complete."
-
-        # --- Verify python-for-android (as fallback) ---
-        echo "Final verification: Checking for python-for-android at: $P4A_DIR"
-        if [ -d "$P4A_DIR" ]; then
-            echo "SUCCESS: python-for-android directory found! Listing its contents:"
-            ls -la "$P4A_DIR"
-        else
-            echo "FATAL ERROR: python-for-android directory is STILL MISSING! Review 'Final buildozer android update' output."
-            exit 1
-        fi
-        echo "------------------------------------------"
+        # IMPORTANT: Clean previous Android SDK/NDK cache and then update/install them
+        # This helps ensure all components, including build-tools (which contains aidl), are fresh.
+        echo "Cleaning old Android SDK/NDK cache..."
+        buildozer android clean
+        echo "Updating/downloading Android SDK and NDK components (this may take a while)..."
+         
+        # You can add 'yes |' before buildozer android update if it ever asks for license acceptance,
+        # but Buildozer usually handles this automatically in CI.
+        yes | buildozer android update
+        echo "Android SDK/NDK update complete."
 
     - name: Generate buildozer.spec
       run: |
@@ -85,9 +49,6 @@ jobs:
         android.targetsdk = 33
         android.archs = arm64-v8a
 
-        # If python-for-android issues persist, uncomment this to try a specific branch for p4a
-        # p4a.branch = develop
-
         [buildozer]
         log_level = 2
         EOF
@@ -98,8 +59,7 @@ jobs:
 
     - name: Build APK
       run: |
-        # Use --log-level 5 for very verbose output during the actual build
-        buildozer -v android debug --log-level 5
+        buildozer -v android debug
         ls -lh bin/
 
     - name: Upload APK
