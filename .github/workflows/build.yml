@@ -1,0 +1,43 @@
+name: Build beep_4 APK
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4  # 更新checkout版本
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'  # 使用较新Python版本
+
+    - name: Install Buildozer
+      run: |
+        pip install buildozer
+        sudo apt-get update
+        sudo apt-get install -y zip unzip openjdk-17-jdk
+        sudo apt-get clean  # 清理缓存节省空间
+
+    - name: Generate Build Config
+      run: |
+        echo "[app]" > buildozer.spec
+        echo "title = beep_4" >> buildozer.spec
+        echo "package.name = beep4" >> buildozer.spec
+        echo "package.domain = org.example" >> buildozer.spec
+        echo "version = 1.0" >> buildozer.spec
+        echo "requirements = python3,kivy" >> buildozer.spec
+        echo "android.permissions = INTERNET" >> buildozer.spec
+
+    - name: Build APK
+      run: |
+        buildozer -v android debug
+        ls -lh bin/  # 检查生成文件
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4  # 关键修正点
+      with:
+        name: beep_4-apk
+        path: bin/*.apk
+        retention-days: 7  # 自动7天后清理
