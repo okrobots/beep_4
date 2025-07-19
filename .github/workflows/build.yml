@@ -19,48 +19,44 @@ jobs:
         pip install cython
 
         sudo apt-get update
-        # Install basic build tools and Java needed by Buildozer and Android SDK
-        sudo apt-get install -y build-essential libssl-dev zlib1g-dev libffi-dev python3-dev openjdk-17-jdk
+        sudo apt-get install -y build-essential libssl-dev zlib1g-dev libffi-dev python3-dev openjdk-17-jdk git
         sudo apt-get clean
 
-        # Ensure Git is installed and available, as Buildozer uses it to clone p4a
-        echo "Checking Git installation..."
-        which git
-        git --version
-        if [ $? -ne 0 ]; then
-            echo "Git is not found or not working. Exiting."
+        P4A_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform/python-for-android"
+        BUILD_PLATFORM_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform"
+
+        echo "Ensuring necessary Buildozer Android platform directories exist..."
+        mkdir -p "$BUILD_PLATFORM_DIR"
+        
+        # --- Attempt to clone python-for-android manually if it's missing ---
+        if [ ! -d "$P4A_DIR" ]; then
+            echo "python-for-android not found. Attempting to clone it manually..."
+            git clone https://github.com/kivy/python-for-android "$P4A_DIR" || { echo "ERROR: Manual python-for-android clone failed!"; exit 1; }
+            echo "Manual python-for-android clone successful."
+        else
+            echo "python-for-android directory already exists. Skipping manual clone."
+        fi
+        
+        # --- Now run buildozer's clean and update ---
+        echo "Cleaning Buildozer Android build artifacts and SDK/NDK cache..."
+        # Use || true to prevent this specific clean command from failing the workflow if the .buildozer dir is brand new
+        buildozer android clean || true 
+        
+        echo "Running buildozer android update to ensure SDK, NDK, and p4a configuration..."
+        # This will also ensure correct p4a branch/commit based on buildozer.spec
+        buildozer android update --verbose || { echo "ERROR: buildozer android update failed!"; exit 1; }
+        echo "Buildozer android update complete."
+
+        # --- FINAL CRITICAL DIAGNOSTIC ---
+        echo "Final verification: Checking for python-for-android at: $P4A_DIR"
+        if [ -d "$P4A_DIR" ]; then
+            echo "SUCCESS: python-for-android directory found! Listing its contents:"
+            ls -la "$P4A_DIR"
+        else
+            echo "FATAL ERROR: python-for-android directory is STILL MISSING!"
             exit 1
         fi
-        echo "Git check complete."
-
-        echo "Cleaning old Android SDK/NDK cache for a fresh start..."
-        buildozer android clean
-
-        echo "Updating/downloading Android SDK, NDK, and Python-for-Android components (this can take significant time)..."
-        # The --verbose flag should give us more clues if it fails
-        # Using 'true' after the command allows the workflow to continue to diagnostic steps even if this fails
-        # but we'll add an explicit check to fail later if p4a is still missing.
-        buildozer android update --verbose || true
-        echo "Android SDK/NDK/P4A update initiated."
-
-        # --- CRITICAL DIAGNOSTIC: Check for python-for-android existence ---
-        P4A_TARGET_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform/python-for-android"
-        echo "Verifying presence of python-for-android at: $P4A_TARGET_DIR"
-        
-        if [ -d "$P4A_TARGET_DIR" ]; then
-            echo "SUCCESS: python-for-android directory found! Listing its contents for verification:"
-            ls -la "$P4A_TARGET_DIR"
-            echo "Attempting a quick 'git status' inside p4a (if it's a git repo):"
-            git -C "$P4A_TARGET_DIR" status || echo "Could not run git status in p4a directory (might not be a clean git clone)."
-        else
-            echo "ERROR: python-for-android directory NOT found after 'buildozer android update'!"
-            echo "This indicates a failure in cloning or extracting python-for-android."
-            echo "Review the 'buildozer android update' output above for errors."
-            echo "If the problem persists, consider uncommenting 'p4a.branch = develop' in buildozer.spec as a workaround."
-            exit 1 # Fail the job here explicitly if p4a is still missing
-        fi
         echo "------------------------------------------"
-        # --- END CRITICAL DIAGNOSTIC ---
 
     - name: Generate buildozer.spec
       run: |
@@ -77,7 +73,7 @@ jobs:
         android.targetsdk = 33
         android.archs = arm64-v8a
 
-        # If python-for-android continues to fail, uncomment this line:
+        # If issues persist, uncomment this to try a specific branch for p4a
         # p4a.branch = develop
 
         [buildozer]
@@ -90,7 +86,8 @@ jobs:
 
     - name: Build APK
       run: |
-        buildozer -v android debug
+        # Use --log-level 5 for very verbose output during the actual build
+        buildozer -v android debug --log-level 5
         ls -lh bin/
 
     - name: Upload APK
