@@ -1,3 +1,4 @@
+[app]
 # 应用基础信息
 title = beep_4
 package.name = beep4
