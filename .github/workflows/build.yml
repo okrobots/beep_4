@@ -16,23 +16,34 @@ jobs:
     - name: Install Buildozer and Dependencies
       run: |
         pip install buildozer
-        pip install cython # Keep this, it fixed the previous issue.
+        pip install cython
 
-        # Ensure apt packages are up-to-date and necessary Java is installed
         sudo apt-get update
-        sudo apt-get install -y zip unzip openjdk-17-jdk
+        sudo apt-get install -y zip unzip openjdk-17-jdk # Ensure Java for Android SDK
         sudo apt-get clean
 
-        # IMPORTANT: Clean previous Android SDK/NDK cache and then update/install them
-        # This helps ensure all components, including build-tools (which contains aidl), are fresh.
         echo "Cleaning old Android SDK/NDK cache..."
         buildozer android clean
-        echo "Updating/downloading Android SDK and NDK components (this may take a while)..."
-        buildozer android update
-        # You can add 'yes |' before buildozer android update if it ever asks for license acceptance,
-        # but Buildozer usually handles this automatically in CI.
-        # Example: yes | buildozer android update
-        echo "Android SDK/NDK update complete."
+        
+        echo "Updating/downloading Android SDK, NDK, and Python-for-Android components..."
+        # Force a complete update of SDK/NDK/p4a.
+        # This command is critical for ensuring python-for-android is cloned.
+        # It can take a long time and might seem stuck, be patient.
+        buildozer android update --verbose # Add --verbose for more detailed output here
+        echo "Android SDK/NDK/P4A update complete."
+
+        # --- DIAGNOSTIC STEP for python-for-android ---
+        P4A_DIR="/home/runner/work/beep_4/beep_4/.buildozer/android/platform/python-for-android"
+        echo "Checking for python-for-android directory: $P4A_DIR"
+        if [ -d "$P4A_DIR" ]; then
+            echo "python-for-android directory found! Listing contents:"
+            ls -la "$P4A_DIR"
+        else
+            echo "ERROR: python-for-android directory NOT found!"
+            exit 1 # Fail the job explicitly if p4a is missing here
+        fi
+        echo "------------------------------------------"
+        # --- END DIAGNOSTIC STEP ---
 
     - name: Generate buildozer.spec
       run: |
@@ -48,6 +59,11 @@ jobs:
         android.minsdk = 21
         android.targetsdk = 33
         android.archs = arm64-v8a
+
+        # Optional: Specify the python-for-android branch
+        # This can sometimes resolve issues with newer Python versions or specific buildozer/p4a compatibility.
+        # Uncomment the line below if the error persists.
+        # p4a.branch = develop
 
         [buildozer]
         log_level = 2
