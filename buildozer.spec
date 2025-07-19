@@ -1,4 +1,4 @@
-# (1) Application configuration
+ # (1) Application configuration
 [app]
 
 # (2) General app settings
@@ -20,33 +20,11 @@ requirements = python3, kivy==2.3.0
 # splash.color = #FFFFFF
 # splash.orientation = portrait # or landscape, or all
 
-# (3) Android specific settings
-# Minimum Android SDK API level for your app. Kivy generally supports 21+.
-# Check Kivy's documentation for the latest recommended minimum.
+# (3) Android specific settings (THESE ARE STILL PART OF THE SAME [app] SECTION)
 android.minsdk = 21
-
-# Target Android SDK API level. Google Play requires this to be high.
-# As of mid-2025, you'll likely need 33 or higher.
 android.targetsdk = 33
-
-# Android NDK version. Buildozer usually handles this, but you can specify.
-# android.ndk = 25b
-
-# Android SDK version.
-# android.sdk = 33
-
-# Architecture to build for. Common options: armeabi-v7a, arm64-v8a, x86, x86_64
-# For most modern devices, arm64-v8a is sufficient. You can list multiple.
 android.archs = arm64-v8a, armeabi-v7a
-
-# Permissions your app needs. Add more as required by your app.
 android.permissions = INTERNET, WAKELOCK, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION
-
-# Services and content providers (for background tasks, etc.)
-# android.services = MyService:org.example.myapp.MyService
-# android.content_providers = MyProvider:org.example.myapp.MyProvider
-
-# Enable/disable debug mode (true for development, false for release)
 android.debug = True
 
 # Keystore information for signing your APK (for release builds)
@@ -58,14 +36,10 @@ android.debug = True
 # android.keystore.password = your_keystore_password
 # android.key_alias.password = your_alias_password
 
-# (4) iOS specific settings (less commonly used for Kivy, but included for completeness)
+# (4) iOS specific settings (THESE ARE STILL PART OF THE SAME [app] SECTION)
 # Set to true if you are building for iOS
 # ios = False
-
-# iOS minimum deployment target
 # ios.min_deployment_target = 13.0
-
-# iOS frameworks to include
 # ios.frameworks = Foundation, UIKit, CoreGraphics
 
 # (5) Buildozer internal settings
@@ -92,8 +66,4 @@ android.enable_aab = False
 # Enable or disable the use of `pip install --user` for dependencies
 # Set to `True` if you encounter permission issues when installing dependencies
 # android.force_system_pip = False
-
-# Debugging options
-# android.build_variant = debug # or release
-# android.add_libs_armeabi_v7a = path/to/mylib.so
 
